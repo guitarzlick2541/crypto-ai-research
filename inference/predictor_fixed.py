@@ -228,14 +228,43 @@ class RealTimePredictor:
             data = response.json()
             
             # ตรวจสอบว่าได้ข้อมูลมาพอไหม (เฉพาะ prediction mode)
-            # สำหรับ chart display (limit != None) ไม่ต้องตรวจสอบ
             if limit is None and len(data) < WINDOW_SIZE:
                 raise ValueError(
                     f"Insufficient data from API: got {len(data)} candles, "
                     f"need at least {WINDOW_SIZE}"
                 )
+                
+            print(f"[SUCCESS] Fetched data from Global Binance API")
             
-            # Extract close prices
+        except requests.exceptions.RequestException as e:
+            # Fallback to Binance US if Global API fails (Geoblocking or Downtime)
+            print(f"⚠️ Warning: Global Binance API failed ({str(e)}). Trying Binance US...")
+            try:
+                BINANCE_US_API_URL = "https://api.binance.us/api/v3/klines"
+                # Binance US ใช้ symbol format เดียวกัน (BTCUSDT)
+                
+                response = self.session.get(
+                    BINANCE_US_API_URL,
+                    params=params,
+                    timeout=15
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                if limit is None and len(data) < WINDOW_SIZE:
+                    raise ValueError(f"Insufficient data from Binance US: {len(data)} < {WINDOW_SIZE}")
+                    
+                print(f"[SUCCESS] Fetched data from Binance US API")
+                
+            except requests.exceptions.RequestException as us_e:
+                 raise Exception(
+                    f"Failed to fetch data from both Global and US Binance APIs.\n"
+                    f"Global Error: {str(e)}\n"
+                    f"US Error: {str(us_e)}"
+                )
+
+        try:
+            # Extract close prices (Common logic for both APIs)
             prices = [float(candle[4]) for candle in data]  # Index 4 = close price
             
             # OHLCV data
