@@ -11,14 +11,15 @@ env/
 data/raw/
 data/processed/
 *.csv
-!results/evaluation_report.csv
-!results/experiment_log.csv
+!experiments/dual_model_results.csv
+!experiments/experiment_log.csv
 
 # Models (Exclude large binary files)
-models/*.h5
-models/*.keras
-models/*.save
-models/*.pkl
+# models/*.h5
+# models/*.keras
+# models/*.save
+# models/*.pkl
+# NOTE: Un-commented above to ensure models are deployed
 
 # IDE Settings
 .vscode/

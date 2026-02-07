@@ -7,3 +7,4 @@ flask-cors>=4.0.0           # Cross-Origin Resource Sharing support
 requests>=2.31.0            # HTTP library for Binance API calls
 h5py>=3.9.0                 # HDF5 file format for saving Keras models
 joblib>=1.3.0               # Model and scaler serialization
+gunicorn>=21.2.0            # Production WSGI Server

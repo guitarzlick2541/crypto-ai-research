@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: crypto-ai-research
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn web.app:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.18
+      - key: FLASK_ENV
+        value: production
