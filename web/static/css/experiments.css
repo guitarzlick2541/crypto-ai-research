@@ -1,0 +1,269 @@
+/* =====================================================
+   Experiments Dashboard CSS
+   =====================================================
+   Styles เฉพาะสำหรับหน้า Experiment Dashboard
+   - Accuracy Table
+   - Performance Charts
+   - Latency Analysis
+   - Experiment Log
+   ===================================================== */
+
+/* ========================
+   Page-specific Header
+   ======================== */
+.experiments-page .logo-icon {
+    background: var(--gradient-experiment);
+}
+
+.experiments-page .logo h1 {
+    background: var(--gradient-experiment);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+/* ========================
+   Accuracy Table
+   ======================== */
+.accuracy-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.accuracy-table thead tr {
+    background: rgba(0, 212, 255, 0.1);
+}
+
+.accuracy-table th {
+    padding: var(--space-md);
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent-cyan);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.accuracy-table td {
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9rem;
+}
+
+.accuracy-table tbody tr {
+    transition: var(--transition-normal);
+}
+
+.accuracy-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+/* Metric Values with Color Coding */
+.metric-value {
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+
+.metric-value.good {
+    color: var(--accent-green);
+}
+
+.metric-value.warn {
+    color: var(--accent-orange);
+}
+
+.metric-value.bad {
+    color: var(--accent-red);
+}
+
+/* ========================
+   Chart Container
+   ======================== */
+.chart-container {
+    position: relative;
+    height: 350px;
+}
+
+.chart-legend {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-xl);
+    margin-top: var(--space-md);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+/* ========================
+   Latency Section
+   ======================== */
+.latency-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-md);
+}
+
+.latency-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    text-align: center;
+    transition: var(--transition-normal);
+}
+
+.latency-card:hover {
+    background: var(--bg-hover);
+    transform: translateY(-2px);
+}
+
+.latency-card .label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--space-sm);
+}
+
+.latency-card .value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.latency-card .unit {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: var(--space-xs);
+}
+
+/* ========================
+   Experiment Log
+   ======================== */
+.experiment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.experiment-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) var(--space-lg);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    transition: var(--transition-normal);
+}
+
+.experiment-item:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-hover);
+}
+
+.experiment-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.experiment-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.experiment-icon.success {
+    background: rgba(0, 255, 136, 0.15);
+    color: var(--accent-green);
+}
+
+.experiment-icon.failed {
+    background: rgba(255, 71, 87, 0.15);
+    color: var(--accent-red);
+}
+
+.experiment-icon i {
+    width: 20px;
+    height: 20px;
+}
+
+.experiment-details h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: var(--space-xs);
+}
+
+.experiment-details span {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.experiment-metrics {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+}
+
+.metric-item {
+    text-align: right;
+}
+
+.metric-item label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.1rem;
+}
+
+.metric-item span {
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+
+/* ========================
+   Responsive
+   ======================== */
+@media (max-width: 768px) {
+    .latency-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .experiment-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-md);
+    }
+
+    .experiment-metrics {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .metric-item {
+        text-align: left;
+    }
+}

@@ -1,0 +1,29 @@
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+
+# Data Files (Exclude large datasets)
+data/raw/
+data/processed/
+*.csv
+!results/evaluation_report.csv
+!results/experiment_log.csv
+
+# Models (Exclude large binary files)
+models/*.h5
+models/*.keras
+models/*.save
+models/*.pkl
+
+# IDE Settings
+.vscode/
+.idea/
+
+# System Files
+.DS_Store
+Thumbs.db

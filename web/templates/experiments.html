@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en" class="experiments-page">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Experiment Dashboard - View AI Models experimental results">
+    <title>Experiment Dashboard - Crypto AI Research</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- External Libraries -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/experiments.css') }}">
+</head>
+
+<body>
+    <!-- Background Glow Effects -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+
+    <div class="container">
+
+        <!-- ======================== -->
+        <!-- Header -->
+        <!-- ======================== -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i data-lucide="flask-conical"></i>
+                </div>
+                <h1>Experiment <span>Dashboard</span></h1>
+            </div>
+            <div class="header-actions">
+                <a href="/" class="nav-link">
+                    <i data-lucide="arrow-left"></i>
+                    <span>Dashboard</span>
+                </a>
+
+                <button class="refresh-btn" id="refresh-btn" onclick="refreshData()" title="Refresh Data">
+                    <i data-lucide="refresh-cw"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- ======================== -->
+        <!-- Stats Summary -->
+        <!-- ======================== -->
+        <section class="stats-summary">
+            <div class="stat-card cyan">
+                <div class="stat-header">
+                    <div class="stat-icon cyan">
+                        <i data-lucide="activity"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="stat-experiments">--</div>
+                <div class="stat-label">Total Experiments</div>
+            </div>
+
+            <div class="stat-card green">
+                <div class="stat-header">
+                    <div class="stat-icon green">
+                        <i data-lucide="target"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="stat-avg-accuracy">--</div>
+                <div class="stat-label">Average Accuracy</div>
+            </div>
+
+            <div class="stat-card purple">
+                <div class="stat-header">
+                    <div class="stat-icon purple">
+                        <i data-lucide="gauge"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="stat-best-model">--</div>
+                <div class="stat-label">Best Model</div>
+            </div>
+
+            <div class="stat-card orange">
+                <div class="stat-header">
+                    <div class="stat-icon orange">
+                        <i data-lucide="timer"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="stat-avg-latency">--</div>
+                <div class="stat-label">Average Latency</div>
+            </div>
+        </section>
+
+        <!-- ======================== -->
+        <!-- Accuracy Table & Performance Chart -->
+        <!-- ======================== -->
+        <section class="content-grid">
+            <!-- Accuracy Table -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">
+                        <i data-lucide="table-2"></i>
+                        <span>Accuracy Table (MAE/RMSE)</span>
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <table class="accuracy-table" id="accuracy-table">
+                        <thead>
+                            <tr>
+                                <th>Coin</th>
+                                <th>Timeframe</th>
+                                <th>Model</th>
+                                <th>MAE</th>
+                                <th>RMSE</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accuracy-tbody">
+                            <tr>
+                                <td colspan="5" class="loading">
+                                    <div class="spinner"></div>
+                                    <span>Loading Data...</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Performance Chart -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">
+                        <i data-lucide="bar-chart-3"></i>
+                        <span>Performance Chart</span>
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-container">
+                        <canvas id="performance-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================== -->
+        <!-- Latency Analysis -->
+        <!-- ======================== -->
+        <section class="content-grid full-width">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">
+                        <i data-lucide="zap"></i>
+                        <span>Latency Analysis</span>
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <div class="latency-grid" id="latency-grid">
+                        <div class="latency-card">
+                            <div class="label">Minimum Latency</div>
+                            <div class="value" id="latency-min">--</div>
+                            <div class="unit">milliseconds</div>
+                        </div>
+                        <div class="latency-card">
+                            <div class="label">Average Latency</div>
+                            <div class="value" id="latency-avg">--</div>
+                            <div class="unit">milliseconds</div>
+                        </div>
+                        <div class="latency-card">
+                            <div class="label">Maximum Latency</div>
+                            <div class="value" id="latency-max">--</div>
+                            <div class="unit">milliseconds</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================== -->
+        <!-- Experiment Log -->
+        <!-- ======================== -->
+        <section class="content-grid full-width">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">
+                        <i data-lucide="scroll-text"></i>
+                        <span>Experiment Log</span>
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <div class="experiment-list" id="experiment-list">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <span>Loading Data...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/experiments.js') }}"></script>
+</body>
+
+</html>

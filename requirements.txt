@@ -1,0 +1,9 @@
+tensorflow>=2.13.0          # Deep Learning Framework (includes Keras)
+pandas>=2.0.0               # Data manipulation and analysis
+numpy>=1.24.0               # Numerical computing
+scikit-learn>=1.3.0         # Machine learning utilities (preprocessing, metrics)
+flask>=3.0.0                # Web application framework
+flask-cors>=4.0.0           # Cross-Origin Resource Sharing support
+requests>=2.31.0            # HTTP library for Binance API calls
+h5py>=3.9.0                 # HDF5 file format for saving Keras models
+joblib>=1.3.0               # Model and scaler serialization

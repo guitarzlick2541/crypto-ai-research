@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Crypto AI Dashboard - Real-time cryptocurrency price prediction using LSTM & GRU Neural Networks">
+    <title>Crypto AI - Real-time Prediction Dashboard</title>
+
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+</head>
+
+<body>
+    <!-- Background Glow Effects -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-actions">
+                <a href="/experiments" class="nav-btn-link">
+                    <i data-lucide="flask-conical"></i>
+                    <span>Experiment Lab</span>
+                </a>
+
+            </div>
+
+            <div class="logo">
+                <i data-lucide="brain-circuit" class="logo-icon"></i>
+                <h1>Crypto<span>AI</span></h1>
+            </div>
+            <p class="tagline">Real-time Price Prediction Dashboard</p>
+            <div class="live-indicator">
+                <span class="live-dot"></span>
+                <span>LIVE</span>
+            </div>
+        </header>
+
+        <!-- Controls Panel -->
+        <section class="controls-section">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="coin-select">
+                        <i data-lucide="coins"></i>
+                        <span>Select Coin</span>
+                    </label>
+                    <select id="coin-select">
+                        {% for c in available_coins %}
+                        <option value="{{ c }}" {% if c==coin.lower() %}selected{% endif %}>
+                            {{ c.upper() }} - {{ "Bitcoin" if c == "btc" else "Ethereum" }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="tf-select">
+                        <i data-lucide="clock"></i>
+                        <span>Timeframe</span>
+                    </label>
+                    <select id="tf-select">
+                        {% for t in available_timeframes %}
+                        <option value="{{ t }}" {% if t==tf %}selected{% endif %}>
+                            {{ t }} - {{ "1 Hour" if t == "1h" else "4 Hours" }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button id="btn-predict" class="btn-predict">
+                    <i data-lucide="zap"></i>
+                    <span>Get Prediction</span>
+                </button>
+
+                <button id="btn-auto-refresh" class="btn-secondary">
+                    <i data-lucide="refresh-cw"></i>
+                    <span>Auto Refresh: OFF</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Current Selection Badge -->
+        <div class="selection-badge">
+            <span class="badge">
+                <i data-lucide="info"></i>
+                Showing: <strong id="badge-coin">{{ coin }}</strong> / <strong id="badge-tf">{{ tf }}</strong>
+            </span>
+            <span class="badge timestamp-badge">
+                <i data-lucide="clock"></i>
+                Last Updated: <strong id="last-update">--</strong>
+            </span>
+        </div>
+
+        <!-- Live Price Section -->
+        <section class="live-price-section">
+            <div class="live-price-card">
+                <div class="live-price-header">
+                    <div class="coin-icon" id="coin-icon">
+                        <i data-lucide="bitcoin"></i>
+                    </div>
+                    <div class="coin-info">
+                        <h2 id="coin-name">{{ coin }}</h2>
+                        <span class="coin-pair" id="coin-pair">{{ coin }}/USDT</span>
+                    </div>
+                </div>
+                <div class="live-price-value">
+                    <span class="price" id="current-price">Loading...</span>
+                    <span class="price-change" id="price-change">--</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Real-time Prediction Section -->
+        <section class="prediction-section">
+            <h2 class="section-title">
+                <i data-lucide="brain"></i>
+                <span>AI Predictions</span>
+                <span class="loading-spinner" id="loading-spinner"></span>
+            </h2>
+
+            <div class="prediction-grid">
+                <!-- LSTM Prediction Card -->
+                <div class="prediction-card lstm-card">
+                    <div class="prediction-header">
+                        <div class="model-badge lstm-badge">
+                            <i data-lucide="layers"></i>
+                            <span>LSTM</span>
+                        </div>
+                        <span class="model-label">Long Short-Term Memory</span>
+                    </div>
+
+                    <div class="prediction-body">
+                        <div class="predicted-price">
+                            <span class="label">Predicted Price</span>
+                            <span class="value" id="lstm-predicted-price">--</span>
+                        </div>
+
+                        <div class="prediction-change" id="lstm-change-container">
+                            <span class="change-value" id="lstm-change">--</span>
+                            <span class="change-label">Expected Change</span>
+                        </div>
+
+                        <div class="trend-indicator" id="lstm-trend">
+                            <i data-lucide="minus"></i>
+                            <span>Neutral</span>
+                        </div>
+                    </div>
+
+                    <div class="prediction-footer">
+                        <div class="metric">
+                            <span class="metric-label">MAE</span>
+                            <span class="metric-value">{{ lstm_mae }}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">RMSE</span>
+                            <span class="metric-value">{{ lstm_rmse }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GRU Prediction Card -->
+                <div class="prediction-card gru-card">
+                    <div class="prediction-header">
+                        <div class="model-badge gru-badge">
+                            <i data-lucide="git-merge"></i>
+                            <span>GRU</span>
+                        </div>
+                        <span class="model-label">Gated Recurrent Unit</span>
+                    </div>
+
+                    <div class="prediction-body">
+                        <div class="predicted-price">
+                            <span class="label">Predicted Price</span>
+                            <span class="value" id="gru-predicted-price">--</span>
+                        </div>
+
+                        <div class="prediction-change" id="gru-change-container">
+                            <span class="change-value" id="gru-change">--</span>
+                            <span class="change-label">Expected Change</span>
+                        </div>
+
+                        <div class="trend-indicator" id="gru-trend">
+                            <i data-lucide="minus"></i>
+                            <span>Neutral</span>
+                        </div>
+                    </div>
+
+                    <div class="prediction-footer">
+                        <div class="metric">
+                            <span class="metric-label">MAE</span>
+                            <span class="metric-value">{{ gru_mae }}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">RMSE</span>
+                            <span class="metric-value">{{ gru_rmse }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Consensus Badge -->
+            <div class="consensus-section" id="consensus-section" style="display: none;">
+                <div class="consensus-badge" id="consensus-badge">
+                    <i data-lucide="check-circle"></i>
+                    <span id="consensus-text">Both models analyzing...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Chart Section -->
+        <section class="chart-section">
+            <div class="section-header">
+                <h2>
+                    <i data-lucide="line-chart"></i>
+                    <span>Price History (Last 50 Candles)</span>
+                </h2>
+                <div class="chart-legend">
+                    <span class="legend-item legend-actual">
+                        <span class="legend-dot"></span>
+                        Actual Price
+                    </span>
+                </div>
+            </div>
+            <div class="chart-box">
+                <canvas id="chart"></canvas>
+            </div>
+        </section>
+
+        <!-- API Info Section -->
+        <section class="api-section">
+            <h2 class="section-title">
+                <i data-lucide="code"></i>
+                <span>API Endpoints</span>
+            </h2>
+
+            <div class="api-grid">
+                <div class="api-card">
+                    <div class="api-header">
+                        <span class="api-method get">GET</span>
+                        <span class="api-desc">Real-time prediction</span>
+                    </div>
+                    <div class="api-endpoint-box">
+                        <code class="api-endpoint">/api/predict?coin=btc&tf=1h</code>
+                    </div>
+                </div>
+                <div class="api-card">
+                    <div class="api-header">
+                        <span class="api-method get">GET</span>
+                        <span class="api-desc">Current price + OHLCV</span>
+                    </div>
+                    <div class="api-endpoint-box">
+                        <code class="api-endpoint">/api/price?coin=btc&tf=1h</code>
+                    </div>
+                </div>
+                <div class="api-card">
+                    <div class="api-header">
+                        <span class="api-method get">GET</span>
+                        <span class="api-desc">Available models</span>
+                    </div>
+                    <div class="api-endpoint-box">
+                        <code class="api-endpoint">/api/models</code>
+                    </div>
+                </div>
+                <div class="api-card">
+                    <div class="api-header">
+                        <span class="api-method get">GET</span>
+                        <span class="api-desc">Research results</span>
+                    </div>
+                    <div class="api-endpoint-box">
+                        <code class="api-endpoint">/api/research</code>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <p>
+                    <i data-lucide="cpu"></i>
+                    <span>Powered by LSTM & GRU Neural Networks | Real-time Data from Binance API</span>
+                </p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // =====================
+        // State Management
+        // =====================
+        let autoRefreshInterval = null;
+        let isAutoRefreshOn = false;
+        let chart = null;
+
+        // =====================
+        // DOM Elements
+        // =====================
+        const coinSelect = document.getElementById('coin-select');
+        const tfSelect = document.getElementById('tf-select');
+        const btnPredict = document.getElementById('btn-predict');
+        const btnAutoRefresh = document.getElementById('btn-auto-refresh');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        // =====================
+        // API Functions
+        // =====================
+        async function fetchPrediction() {
+            const coin = coinSelect.value;
+            const tf = tfSelect.value;
+
+            showLoading(true);
+
+            try {
+                const response = await fetch(`/api/predict?coin=${coin}&tf=${tf}&model=both`);
+                const result = await response.json();
+
+                if (result.success) {
+                    updatePredictionUI(result.data);
+                } else {
+                    console.error('Prediction error:', result.error);
+                    showError(result.error);
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                showError('Failed to fetch prediction');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function fetchPrice() {
+            const coin = coinSelect.value;
+            const tf = tfSelect.value;
+
+            try {
+                const response = await fetch(`/api/price?coin=${coin}&tf=${tf}&limit=50`);
+                const result = await response.json();
+
+                if (result.success) {
+                    updateChartData(result.data.ohlcv);
+                }
+            } catch (error) {
+                console.error('Fetch price error:', error);
+            }
+        }
+
+        // =====================
+        // UI Update Functions
+        // =====================
+        function updatePredictionUI(data) {
+            // Update badge
+            document.getElementById('badge-coin').textContent = data.coin;
+            document.getElementById('badge-tf').textContent = data.timeframe;
+            document.getElementById('coin-name').textContent = data.coin;
+            document.getElementById('coin-pair').textContent = `${data.coin}/USDT`;
+
+            // Update current price
+            document.getElementById('current-price').textContent = `$${data.current_price.toLocaleString()}`;
+
+            // Update timestamp
+            const time = new Date(data.timestamp).toLocaleTimeString();
+            document.getElementById('last-update').textContent = time;
+
+            // Update LSTM prediction
+            document.getElementById('lstm-predicted-price').textContent =
+                `$${data.lstm.predicted_price.toLocaleString()}`;
+
+            const lstmChange = document.getElementById('lstm-change');
+            lstmChange.textContent = `${data.lstm.price_change_pct >= 0 ? '+' : ''}${data.lstm.price_change_pct.toFixed(4)}%`;
+            lstmChange.className = `change-value ${data.lstm.price_change_pct >= 0 ? 'positive' : 'negative'}`;
+
+            updateTrendIndicator('lstm-trend', data.lstm.trend);
+
+            // Update GRU prediction
+            document.getElementById('gru-predicted-price').textContent =
+                `$${data.gru.predicted_price.toLocaleString()}`;
+
+            const gruChange = document.getElementById('gru-change');
+            gruChange.textContent = `${data.gru.price_change_pct >= 0 ? '+' : ''}${data.gru.price_change_pct.toFixed(4)}%`;
+            gruChange.className = `change-value ${data.gru.price_change_pct >= 0 ? 'positive' : 'negative'}`;
+
+            updateTrendIndicator('gru-trend', data.gru.trend);
+
+            // Update consensus
+            const consensusSection = document.getElementById('consensus-section');
+            const consensusBadge = document.getElementById('consensus-badge');
+            const consensusText = document.getElementById('consensus-text');
+
+            consensusSection.style.display = 'flex';
+            consensusText.textContent = data.consensus;
+
+            // Update price change indicator
+            const priceChange = document.getElementById('price-change');
+            const avgChange = (data.lstm.price_change_pct + data.gru.price_change_pct) / 2;
+            priceChange.textContent = `${avgChange >= 0 ? '↑' : '↓'} ${Math.abs(avgChange).toFixed(4)}% predicted`;
+            priceChange.className = `price-change ${avgChange >= 0 ? 'positive' : 'negative'}`;
+        }
+
+        function updateTrendIndicator(elementId, trend) {
+            const element = document.getElementById(elementId);
+            let icon, text, className;
+
+            switch (trend) {
+                case 'bullish':
+                    icon = 'trending-up';
+                    text = 'Bullish';
+                    className = 'trend-indicator bullish';
+                    break;
+                case 'bearish':
+                    icon = 'trending-down';
+                    text = 'Bearish';
+                    className = 'trend-indicator bearish';
+                    break;
+                default:
+                    icon = 'minus';
+                    text = 'Neutral';
+                    className = 'trend-indicator neutral';
+            }
+
+            element.className = className;
+            element.innerHTML = `<i data-lucide="${icon}"></i><span>${text}</span>`;
+            lucide.createIcons();
+        }
+
+        function updateChartData(ohlcv) {
+            const labels = ohlcv.map((_, i) => i + 1);
+            const prices = ohlcv.map(c => c.close);
+
+            // ทำลายกราฟเก่าก่อนสร้างใหม่ เพื่อให้ scale ปรับตามข้อมูลใหม่
+            if (chart) {
+                chart.destroy();
+                chart = null;
+            }
+
+            initChart(labels, prices);
+            console.log(`📊 Chart updated with ${prices.length} data points`);
+        }
+
+        function showLoading(show) {
+            loadingSpinner.style.display = show ? 'inline-block' : 'none';
+            btnPredict.disabled = show;
+        }
+
+        function showError(message) {
+            console.error(message);
+            // Could add toast notification here
+        }
+
+        // =====================
+        // Chart Initialization
+        // =====================
+        function initChart(labels = [], prices = []) {
+            const ctx = document.getElementById('chart').getContext('2d');
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(0, 255, 136, 0.4)');
+            gradient.addColorStop(1, 'rgba(0, 255, 136, 0.0)');
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Price',
+                        data: prices,
+                        borderColor: '#00ff88',
+                        backgroundColor: gradient,
+                        borderWidth: 2.5,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointHoverBackgroundColor: '#00ff88'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#00ff88',
+                            bodyColor: '#ffffff',
+                            borderColor: '#00ff88',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: (ctx) => `$${ctx.parsed.y.toLocaleString()}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: 'rgba(255, 255, 255, 0.6)', font: { family: 'Inter' } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.6)',
+                                font: { family: 'Inter' },
+                                callback: (value) => '$' + value.toLocaleString()
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // =====================
+        // Auto Refresh
+        // =====================
+        function toggleAutoRefresh() {
+            isAutoRefreshOn = !isAutoRefreshOn;
+
+            if (isAutoRefreshOn) {
+                btnAutoRefresh.innerHTML = '<i data-lucide="refresh-cw"></i><span>Auto Refresh: ON</span>';
+                btnAutoRefresh.classList.add('active');
+                autoRefreshInterval = setInterval(() => {
+                    fetchPrediction();
+                    fetchPrice();
+                }, 30000); // Refresh every 30 seconds
+            } else {
+                btnAutoRefresh.innerHTML = '<i data-lucide="refresh-cw"></i><span>Auto Refresh: OFF</span>';
+                btnAutoRefresh.classList.remove('active');
+                clearInterval(autoRefreshInterval);
+            }
+
+            lucide.createIcons();
+        }
+
+        // =====================
+        // Event Listeners
+        // =====================
+        btnPredict.addEventListener('click', () => {
+            fetchPrediction();
+            fetchPrice();
+        });
+
+        btnAutoRefresh.addEventListener('click', toggleAutoRefresh);
+
+        coinSelect.addEventListener('change', () => {
+            const url = new URL(window.location);
+            url.searchParams.set('coin', coinSelect.value);
+            window.location.href = url.href; // โหลดหน้าใหม่เพื่อให้ Jinja2 อัปเดตค่า MAE/RMSE
+        });
+
+        tfSelect.addEventListener('change', () => {
+            const url = new URL(window.location);
+            url.searchParams.set('tf', tfSelect.value);
+            window.location.href = url.href; // โหลดหน้าใหม่เพื่อให้ Jinja2 อัปเดตค่า MAE/RMSE
+        });
+
+        // =====================
+        // Initialize
+        // =====================
+        document.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            fetchPrediction();
+            fetchPrice();
+        });
+    </script>
+
+</body>
+
+</html>
