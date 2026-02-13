@@ -97,14 +97,14 @@ def evaluate_models():
                     
                 try:
                     model = load_model(model_path, compile=False)
-                    scaler = joblib.load(scaler_path)
+                    saved_scaler = joblib.load(scaler_path)
                     
                     print(f"    Evaluating {model_type}...")
                     preds_scaled = model.predict(X_test, verbose=0)
                     
                     # Inverse transform (using shared utility)
-                    preds_actual = inverse_transform_close(scaler, preds_scaled)
-                    actual_series = inverse_transform_close(scaler, y_test)
+                    preds_actual = inverse_transform_close(saved_scaler, preds_scaled)
+                    actual_series = inverse_transform_close(saved_scaler, y_test)
                     
                     preds_series = preds_actual.flatten()
                     actual_series = actual_series.flatten()

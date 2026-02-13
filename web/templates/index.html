@@ -28,51 +28,8 @@
     <link rel="stylesheet"
         href="{{ url_for('static', filename='css/index.css') }}?v={{ range(10000, 99999) | random }}">
 
-    <!-- Tooltip Styles (inline to avoid cache issues) -->
-    <style>
-        .tooltip-trigger {
-            position: relative;
-            cursor: help;
-            font-size: 0.85rem;
-            opacity: 0.5;
-            transition: opacity 0.2s ease;
-            display: inline-block;
-        }
 
-        .tooltip-trigger:hover {
-            opacity: 1;
-        }
 
-        .tooltip-trigger::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: calc(100% + 8px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.95);
-            color: #ffffff;
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            font-weight: 400;
-            text-transform: none;
-            letter-spacing: normal;
-            line-height: 1.4;
-            white-space: nowrap;
-            pointer-events: none;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.2s ease, visibility 0.2s ease;
-            z-index: 1000;
-            border: 1px solid #00ff88;
-            box-shadow: 0 4px 20px rgba(0, 255, 136, 0.15);
-        }
-
-        .tooltip-trigger:hover::after {
-            opacity: 1;
-            visibility: visible;
-        }
-    </style>
 </head>
 
 <body>

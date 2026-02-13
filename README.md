@@ -123,7 +123,7 @@ crypto-ai-research/
 ### 7.1 การติดตั้ง (Installation)
 1. Clone โปรเจคและติดตั้ง Library ที่จำเป็น
    ```bash
-   git clone https://github.com/your-username/crypto-ai-research.git
+   git clone https://github.com/guitarzlick2541/crypto-ai-research.git
    cd crypto-ai-research
    pip install -r requirements.txt
    ```

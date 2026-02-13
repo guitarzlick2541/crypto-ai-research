@@ -1,11 +1,13 @@
 """
 Flask Web Application - Real-time Crypto AI Dashboard
 ======================================================
-- โหลดผลวิจัย MAE/RMSE จาก dual_model_results.csv
+- โหลดผลวิจัย MAE/RMSE/MAPE จาก evaluation_report.csv
 - API endpoints สำหรับ real-time prediction
 - Dashboard แสดงผลแบบ real-time
 
 CHANGELOG:
+- v2.1: Fixed CSV source to evaluation_report.csv (includes MAPE)
+- v2.1: Removed duplicate code and unused imports
 - v2.0: Disabled debug mode by default (SECURITY FIX)
 - v2.0: Added environment variable for debug control
 - v2.0: Added production mode configuration
@@ -29,11 +31,13 @@ sys.path.append(INFERENCE_DIR)
 from inference.predictor_fixed import predictor as prediction_logic
 print("[INFO] Using FIXED predictor (predictor_fixed.py)")
 
-from inference import load_model as model_loader
-
 # Path Configuration
 # -------------------------
 RESULT_DIR = os.path.join(BASE_DIR, "experiments")
+
+# Supported coins and timeframes (single source of truth)
+VALID_COINS = ["btc", "eth"]
+VALID_TIMEFRAMES = ["1h", "4h"]
 
 # การตั้งค่า Flask App
 # -------------------------
@@ -43,8 +47,8 @@ CORS(app)  # เปิดใช้งาน CORS สำหรับ API endpoint
 # Helper Functions
 # -------------------------
 def load_research_results():
-    """โหลดผลวิจัยจาก dual_model_results.csv"""
-    csv_path = os.path.join(RESULT_DIR, "dual_model_results.csv")
+    """โหลดผลวิจัยจาก evaluation_report.csv (มี MAE, RMSE, MAPE)"""
+    csv_path = os.path.join(RESULT_DIR, "evaluation_report.csv")
     if os.path.exists(csv_path):
         return pd.read_csv(csv_path)
     return None
@@ -76,20 +80,14 @@ def index():
     coin = request.args.get("coin", "btc").lower()
     tf = request.args.get("tf", "1h")
     
-    # Validate inputs (FIXED: เพิ่ม validation)
-    valid_coins = ["btc", "eth"]
-    valid_timeframes = ["1h", "4h"]
-    
-    if coin not in valid_coins:
+    # Validate inputs
+    if coin not in VALID_COINS:
         coin = "btc"
-    if tf not in valid_timeframes:
+    if tf not in VALID_TIMEFRAMES:
         tf = "1h"
     
-    # โหลดผลวิจัยจาก evaluation_report.csv (มี MAPE)
-    eval_path = os.path.join(RESULT_DIR, "evaluation_report.csv")
-    research_df = None
-    if os.path.exists(eval_path):
-        research_df = pd.read_csv(eval_path)
+    # โหลดผลวิจัยจาก evaluation_report.csv (มี MAE, RMSE, MAPE)
+    research_df = load_research_results()
     
     # ดึงค่า metrics สำหรับ LSTM และ GRU
     lstm_metrics = get_model_metrics(research_df, coin, tf, "LSTM")
@@ -106,16 +104,12 @@ def index():
             best_model = "GRU"
             best_mape = gru_metrics["mape"]
     
-    # รายการเหรียญและ timeframes ที่รองรับ
-    available_coins = ["btc", "eth"]
-    available_timeframes = ["1h", "4h"]
-    
     return render_template(
         "index.html",
         coin=coin.upper(),
         tf=tf,
-        available_coins=available_coins,
-        available_timeframes=available_timeframes,
+        available_coins=VALID_COINS,
+        available_timeframes=VALID_TIMEFRAMES,
         lstm_mae=lstm_metrics["mae"],
         lstm_rmse=lstm_metrics["rmse"],
         lstm_mape=lstm_metrics["mape"],
@@ -216,16 +210,16 @@ def api_price():
     limit = request.args.get("limit", 100, type=int)
     
     # Validate inputs
-    if coin not in ["btc", "eth"]:
+    if coin not in VALID_COINS:
         return jsonify({
             "success": False,
-            "error": f"Invalid coin: {coin}. Must be 'btc' or 'eth'"
+            "error": f"Invalid coin: {coin}. Must be one of {VALID_COINS}"
         }), 400
     
-    if tf not in ["1h", "4h"]:
+    if tf not in VALID_TIMEFRAMES:
         return jsonify({
             "success": False,
-            "error": f"Invalid timeframe: {tf}. Must be '1h' or '4h'"
+            "error": f"Invalid timeframe: {tf}. Must be one of {VALID_TIMEFRAMES}"
         }), 400
     
     try:
@@ -341,13 +335,14 @@ def api_health():
 @app.route("/api/experiments/accuracy")
 def api_experiments_accuracy():
     """
-    API Endpoint สำหรับดึงข้อมูล Accuracy (MAE/RMSE) ของ Models
+    API Endpoint สำหรับดึงข้อมูล Accuracy (MAE/RMSE/MAPE) ของ Models
+    ใช้ evaluation_report.csv เป็น source of truth
     
     Returns:
         JSON response with accuracy data
     """
     try:
-        csv_path = os.path.join(RESULT_DIR, "dual_model_results.csv")
+        csv_path = os.path.join(RESULT_DIR, "evaluation_report.csv")
         
         if not os.path.exists(csv_path):
             return jsonify({
@@ -360,11 +355,12 @@ def api_experiments_accuracy():
         results = []
         for _, row in df.iterrows():
             results.append({
-                "coin": row["Coin"],
-                "timeframe": row["Timeframe"],
-                "model": row["Model"],
-                "mae": row["MAE"],
-                "rmse": row["RMSE"]
+                "coin": row["coin"],
+                "timeframe": row["timeframe"],
+                "model": row["model"],
+                "mae": row["mae"],
+                "rmse": row["rmse"],
+                "mape": row["mape"]
             })
         
         return jsonify({

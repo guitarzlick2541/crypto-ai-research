@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Check - Crypto AI</title>
+
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .card {
+            background: #141414;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .header h1 i {
+            width: 28px;
+            height: 28px;
+            color: #00ff88;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.5rem;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+
+        .status-healthy {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid #00ff88;
+            color: #00ff88;
+        }
+
+        .status-degraded {
+            background: rgba(255, 217, 61, 0.1);
+            border: 1px solid #ffd93d;
+            color: #ffd93d;
+        }
+
+        .status-unhealthy {
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid #ff6b6b;
+            color: #ff6b6b;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: blink 1s ease infinite;
+        }
+
+        .status-healthy .status-dot {
+            background: #00ff88;
+        }
+
+        .status-degraded .status-dot {
+            background: #ffd93d;
+        }
+
+        .status-unhealthy .status-dot {
+            background: #ff6b6b;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .stat {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #00ff88;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 0.25rem;
+        }
+
+        .model-list {
+            margin-top: 1rem;
+        }
+
+        .model-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .model-item:last-child {
+            border-bottom: none;
+        }
+
+        .model-name {
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .model-status {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+        }
+
+        .model-ready {
+            background: rgba(0, 255, 136, 0.1);
+            color: #00ff88;
+        }
+
+        .model-missing {
+            background: rgba(255, 107, 107, 0.1);
+            color: #ff6b6b;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: rgba(255, 255, 255, 0.5);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: color 0.3s;
+        }
+
+        .back-link:hover {
+            color: #00ff88;
+        }
+
+        .back-link i {
+            width: 16px;
+            height: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="/" class="back-link">
+            <i data-lucide="arrow-left"></i>
+            <span>Back to Dashboard</span>
+        </a>
+
+        <div class="card" style="margin-top: 1rem;">
+            <div class="header">
+                <h1><i data-lucide="heart-pulse"></i> System Health</h1>
+                {% if health.status == 'healthy' %}
+                <div class="status-badge status-healthy">
+                    <div class="status-dot"></div>
+                    <span>Healthy</span>
+                </div>
+                {% elif health.status == 'degraded' %}
+                <div class="status-badge status-degraded">
+                    <div class="status-dot"></div>
+                    <span>Degraded</span>
+                </div>
+                {% else %}
+                <div class="status-badge status-unhealthy">
+                    <div class="status-dot"></div>
+                    <span>Unhealthy</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="stat-grid">
+                <div class="stat">
+                    <div class="stat-value">{{ health.total_models }}</div>
+                    <div class="stat-label">Total Models</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">{{ health.ready_models }}</div>
+                    <div class="stat-label">Ready</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">{{ health.models_missing_scaler }}</div>
+                    <div class="stat-label">Missing Scaler</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="font-size: 1rem; margin-bottom: 0.5rem;">Model Details</h3>
+            <div class="model-list">
+                {% for model in health.models %}
+                <div class="model-item">
+                    <span class="model-name">{{ model.model_type }} — {{ model.coin }} ({{ model.timeframe }})</span>
+                    {% if model.has_scaler %}
+                    <span class="model-status model-ready">Ready</span>
+                    {% else %}
+                    <span class="model-status model-missing">No Scaler</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <script>lucide.createIcons();</script>
+</body>
+
+</html>
