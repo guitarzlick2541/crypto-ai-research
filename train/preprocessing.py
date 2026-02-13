@@ -4,12 +4,10 @@ train/preprocessing.py
 โมดูลสำหรับเตรียมข้อมูล (Data Preprocessing) สำหรับงานวิจัย Crypto AI
 
 โมดูลนี้จัดการกระบวนการ ETL (Extract, Transform, Load) สำหรับ:
-1. การดึงข้อมูลดิบจากไฟล์ CSV via Extract
-2. การตรวจสอบความถูกต้องของข้อมูล (Validation)
-3. การแปลงข้อมูล (Normalization)
-4. การบันทึกข้อมูลที่ผ่านการประมวลผลลงในโฟลเดอร์ 'data/processed/'
-
-เพื่อให้มั่นใจว่าผลการทดลองสามารถทำซ้ำได้ (Reproducible) และเป็นไปตามมาตรฐานงานวิจัย
+1. การดึงข้อมูลดิบจากไฟล์ CSV
+2. การคำนวณ Technical Indicators (ผ่าน shared utils/indicators.py)
+3. การแปลงข้อมูล (Normalization) แบบ Multi-Feature
+4. การสร้าง Sliding Window Dataset สำหรับ LSTM/GRU
 """
 
 import os
@@ -18,15 +16,21 @@ import numpy as np
 import sys
 from sklearn.preprocessing import MinMaxScaler
 
-# Ensure we can find the config module
+# Ensure we can find project modules
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
+
 try:
     import config
 except ImportError:
     from train import config
 
+from utils.indicators import compute_technical_indicators
+
+
 class DataProcessor:
     def __init__(self):
-        """เริ่มต้น DataProcessor พร้อมกับ MinMaxScaler"""
+        """เริ่มต้น DataProcessor พร้อมกับ MinMaxScaler (multi-feature)"""
         self.scaler = MinMaxScaler(feature_range=(0, 1))
         
     def load_data(self, coin, timeframe):
@@ -52,19 +56,16 @@ class DataProcessor:
     def validate_data(self, df, coin, timeframe):
         """
         ตรวจสอบความถูกต้องของข้อมูล (Data Integrity)
-        
-        ตรวจสอบ:
-        - มีคอลัมน์ที่จำเป็น ('close') หรือไม่
-        - Dataframe ว่างหรือไม่
-        - ค่า Null/NaN
         """
         print(f"   Validating {coin.upper()} {timeframe} data...")
         
         if df.empty:
             raise ValueError(f"❌ Dataframe is empty for {coin} {timeframe}")
             
-        if 'close' not in df.columns:
-            raise ValueError(f"❌ Missing 'close' column in {coin} {timeframe}")
+        required_cols = ['close', 'open', 'high', 'low', 'volume']
+        for col in required_cols:
+            if col not in df.columns:
+                raise ValueError(f"❌ Missing '{col}' column in {coin} {timeframe}")
             
         # ตรวจสอบค่า NaN ใน column close
         if df['close'].isnull().any():
@@ -74,69 +75,30 @@ class DataProcessor:
         print("      Validation passed.")
         return df
 
-    def process_and_save(self, coin, timeframe):
-        """
-        รันกระบวนการ Preprocessing เต็มรูปแบบสำหรับ Dataset
-        
-        ขั้นตอน:
-        1. โหลดข้อมูลดิบ
-        2. ตรวจสอบความถูกต้อง
-        3. ปรับค่า (Normalize) ด้วย MinMax Scaling
-        4. บันทึกลงใน data/processed/
-        """
-        try:
-            # 1. Load
-            df = self.load_data(coin, timeframe)
-            
-            # 2. Validate
-            df = self.validate_data(df, coin, timeframe)
-            
-            # 3. Normalize
-            print("    Normalizing data...")
-            # เราใช้ Scaler ตัวนี้สำหรับกระบวนการนี้เพื่อบันทึกการแปลงค่า
-            # หมายเหตุสำหรับงานวิจัย: ในอุดมคติ เราควร fit scaler กับชุด Train เท่านั้นเพื่อป้องกัน Data Leakage (Look-ahead bias)
-            # อย่างไรก็ตาม สำหรับโจทย์ "สร้าง data/processed/" เราจะ scale ข้อมูลทั้งหมด
-            # เพื่อให้พร้อมใช้งานทันที ส่วนการแบ่ง Train/Test จะทำในภายหลัง
-            
-            close_prices = df['close'].values.reshape(-1, 1)
-            scaled_prices = self.scaler.fit_transform(close_prices)
-            
-            # Create Processed DataFrame
-            processed_df = df.copy()
-            processed_df['close_scaled'] = scaled_prices
-            
-            # Select only required columns for output as per requirements
-            output_df = processed_df[['close', 'close_scaled']]
-            
-            # 4. Save
-            processed_dir = os.path.join(os.path.dirname(config.DATA_DIR), "processed")
-            os.makedirs(processed_dir, exist_ok=True)
-            
-            output_filename = f"{coin.lower()}_{timeframe}_scaled.csv"
-            output_path = os.path.join(processed_dir, output_filename)
-            
-            output_df.to_csv(output_path, index=False)
-            print(f"       Saved processed data to: {output_path}")
-            
-            return output_path
-            
-        except Exception as e:
-            print(f"   ❌ Processing failed for {coin} {timeframe}: {str(e)}")
-            raise e
-
-    # -------------------------------------------------------------
-    # เมธอดสำหรับความเข้ากันได้ (Compatibility Methods)
-    # -------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # Train/Test Split & Scaling (Multi-Feature)
+    # -----------------------------------------------------------------
     def get_train_test_data(self, df, split_ratio=0.8):
         """
         แบ่งข้อมูล Train/Test และทำ Scaling อย่างถูกต้อง (ป้องกัน Data Leakage)
+        รองรับ Multi-Feature
         
         Process:
-        1. Split Data (Train/Test)
-        2. Fit Scaler on Train ONLY
-        3. Transform Train and Test
+        1. เพิ่ม Technical Indicators (via shared module)
+        2. Split Data (Train/Test)
+        3. Fit Scaler on Train ONLY
+        4. Transform Train and Test
+        
+        Returns:
+            tuple: (train_scaled, test_scaled, scaler)
         """
-        data = df.filter(['close']).values
+        # เพิ่ม Technical Indicators (ใช้ shared function)
+        df = compute_technical_indicators(df)
+        
+        # เลือก features ที่ต้องการ
+        feature_cols = [col for col in config.FEATURE_COLUMNS if col in df.columns]
+        data = df[feature_cols].values
+        
         train_size = int(len(data) * split_ratio)
         
         train_data = data[:train_size]
@@ -152,39 +114,36 @@ class DataProcessor:
 
     def create_sliding_window(self, data, window_size=config.WINDOW_SIZE):
         """
-        สร้าง Sliding Window Dataset (X, y)
+        สร้าง Sliding Window Dataset (X, y) - รองรับ Multi-Feature
+        
+        Args:
+            data: np.array shape (n_samples, n_features)
+            window_size: ขนาดของ window
+            
+        Returns:
+            X: np.array shape (samples, window_size, n_features)
+            y: np.array shape (samples,) - ทำนายเฉพาะ close (feature index 0)
         """
         X, y = [], []
+        
+        # ตรวจสอบว่าเป็น multi-feature หรือ single-feature
+        if len(data.shape) == 1:
+            data = data.reshape(-1, 1)
+            
         for i in range(window_size, len(data)):
-            X.append(data[i-window_size:i, 0])
-            y.append(data[i, 0])
+            X.append(data[i-window_size:i])  # (window_size, n_features)
+            y.append(data[i, 0])             # close price (feature index 0)
         
         X, y = np.array(X), np.array(y)
-        # Reshape for LSTM/GRU [samples, time steps, features]
-        X = np.reshape(X, (X.shape[0], X.shape[1], 1))
         
         return X, y
 
-    # Deprecated: Old method with leakage risk
-    def prepare_data(self, df):
-        print("⚠️ Warning: prepare_data() has potential data leakage. Use get_train_test_data() instead.")
-        data = df.filter(['close']).values
-        scaled_data = self.scaler.fit_transform(data)
-        return scaled_data, self.scaler
-
-    # Deprecated: Old split method
-    def split_train_test(self, X, y, split_ratio=0.8):
-        train_size = int(len(X) * split_ratio)
-        X_train, y_train = X[:train_size], y[:train_size]
-        X_test, y_test = X[train_size:], y[train_size:]
-        X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
-        X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
-        return X_train, y_train, X_test, y_test
 
 def run_preprocessing_pipeline():
     """
     จุดเริ่มต้นหลัก (Main entry point) สำหรับรัน pipeline การเตรียมข้อมูลทั้งหมด
     """
+    config._ensure_directories(config.MODEL_DIR, config.RESULT_DIR)
     processor = DataProcessor()
     
     print("="*60)
@@ -194,7 +153,13 @@ def run_preprocessing_pipeline():
     for coin in config.COINS:
         for tf in config.TIMEFRAMES:
             print(f"\ndataset: {coin.upper()} / {tf}")
-            processor.process_and_save(coin, tf)
+            try:
+                df = processor.load_data(coin, tf)
+                df = processor.validate_data(df, coin, tf)
+                train_scaled, test_scaled, scaler = processor.get_train_test_data(df)
+                print(f"    Train: {train_scaled.shape}, Test: {test_scaled.shape}")
+            except Exception as e:
+                print(f"    ❌ Failed: {e}")
             
     print("\n" + "="*60)
     print(" PREPROCESSING COMPLETE")

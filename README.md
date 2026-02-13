@@ -4,7 +4,7 @@
 ## 1. บทนำและภาพรวม (Project Overview)
 โปรเจคนี้เป็นการพัฒนาระบบวิเคราะห์และพยากรณ์ราคาคริปโตเคอร์เรนซี (Cryptocurrency) ในระยะสั้น โดยมุ่งเน้นการเปรียบเทียบประสิทธิภาพของแบบจำลอง Deep Learning ประเภท **Recurrent Neural Networks (RNNs)** สองสถาปัตยกรรม ได้แก่ **Long Short-Term Memory (LSTM)** และ **Gated Recurrent Unit (GRU)**
 
-ระบบถูกออกแบบมาให้ทำงานแบบ End-to-End ตั้งแต่การดึงข้อมูลราคาย้อนหลัง (Historical Data), การประมวลผลข้อมูล (Preprocessing), การฝึกสอนโมเดล (Training), จนถึงการนำไปใช้งานจริงผ่านเว็บแอปพลิเคชัน (Web Interface) ที่แสดงผลการพยากรณ์แบบ Real-time
+ระบบถูกออกแบบมาให้ทำงานแบบ End-to-End ตั้งแต่การดึงข้อมูลราคาย้อนหลัง (Historical Data), การประมวลผลข้อมูล (Preprocessing), การคำนวณ Technical Indicators, การฝึกสอนโมเดล (Training), จนถึงการนำไปใช้งานจริงผ่านเว็บแอปพลิเคชัน (Web Interface) ที่แสดงผลการพยากรณ์แบบ Real-time
 
 ---
 
@@ -16,11 +16,12 @@
 ---
 
 ## 3. ขอบเขตของระบบ (Scope)
-*   **ข้อมูลนำเข้า:** ข้อมูลราคาปิด (Close Price) ย้อนหลังจากกระดานเทรด Binance
+*   **ข้อมูลนำเข้า:** ข้อมูล OHLCV (Open, High, Low, Close, Volume) ย้อนหลัง 5,000+ แท่งเทียน จากกระดานเทรด Binance พร้อม Technical Indicators 10 ตัว
 *   **เหรียญที่รองรับ:** Bitcoin (BTC) และ Ethereum (ETH)
 *   **ช่วงเวลา (Timeframe):** 1 ชั่วโมง (1h) และ 4 ชั่วโมง (4h)
-*   **แบบจำลอง:** LSTM และ GRU
-*   **ผลลัพธ์:** ราคาที่คาดการณ์ในแท่งเทียนถัดไป (Next Candle Prediction) และแนวโน้ม (Bullish/Bearish)
+*   **แบบจำลอง:** LSTM และ GRU (สถาปัตยกรรม 128→64→32 Units พร้อม Dropout + BatchNormalization)
+*   **คุณลักษณะ (Features):** 15 features ได้แก่ OHLCV, SMA(7,25), EMA(12,26), RSI(14), MACD, Bollinger Bands, Returns
+*   **ผลลัพธ์:** ราคาที่คาดการณ์ในแท่งเทียนถัดไป (Next Candle Prediction) และแนวโน้ม (Bullish/Bearish/Neutral)
 
 ---
 
@@ -29,51 +30,79 @@
 
 ```
 crypto-ai-research/
-├── data/                   # จัดการข้อมูลนำเข้า
-│   ├── raw/                # เก็บไฟล์ CSV ข้อมูลราคาย้อนหลัง
-│   └── download_data.py    # สคริปต์สำหรับดึงข้อมูลจาก Binance API
-├── train/                  # โมดูลสำหรับการฝึกสอนโมเดล (Machine Learning Pipeline)
-│   ├── config.py           # การตั้งค่า Hyperparameters (Epochs, Batch size)
-│   ├── preprocessing.py    # การทำความสะอาดข้อมูลและ Normalization (MinMax Scaling)
-│   ├── train_model.py      # โค้ดหลักในการสร้างและเทรนโมเดล LSTM/GRU
-│   └── run_training.py     # สคริปต์ควบคุมการรัน Experiment ทั้งหมด
-├── inference/              # โมดูลสำหรับการนำโมเดลไปใช้งาน (Inference Engine)
-│   ├── load_model.py       # จัดการการโหลดไฟล์ .h5 และ Scaler
-│   └── predictor_fixed.py  # ระบบพยากรณ์ Real-time (พร้อม Retry Logic และ Validation)
-├── evaluation/             # การประเมินผล
-│   └── evaluate_model.py   # สคริปต์คำนวณค่า Error (MAE, RMSE) จากชุดข้อมูลทดสอบ
-├── web/                    # ส่วนต่อประสานผู้ใช้ (User Interface)
-│   ├── app.py              # Flask Server และ API Endpoints
-│   ├── templates/          # HTML Files (Dashboard)
-│   └── static/             # CSS และ JavaScript (Chart.js)
-├── models/                 # ที่เก็บไฟล์ Model (.h5) และ Scaler (.save) ที่ผ่านการเทรนแล้ว
-├── experiments/            # บันทึกผลการทดลอง (Logs และ CSV Reports)
-└── scripts/                # สคริปต์ทดสอบและยูทิลิตี้ต่างๆ
-    ├── test_inference.py   # เทสต์ระบบ Inference
-    └── debug_chart.py      # เทสต์การดึงข้อมูลกราฟ
+├── data/                       # จัดการข้อมูลนำเข้า
+│   └── raw/                    # เก็บไฟล์ CSV ข้อมูลราคาย้อนหลัง (btc_1h.csv, eth_4h.csv ฯลฯ)
+├── train/                      # โมดูลสำหรับการฝึกสอนโมเดล (Machine Learning Pipeline)
+│   ├── config.py               # ศูนย์รวมค่าคงที่ (Hyperparameters, Feature Columns, API Config)
+│   ├── preprocessing.py        # การเตรียมข้อมูล, Feature Engineering, Normalization
+│   ├── train_model.py          # โค้ดหลักในการสร้างและเทรนโมเดล LSTM/GRU
+│   └── run_training.py         # สคริปต์ควบคุมการรัน Experiment ทั้งหมด
+├── inference/                  # โมดูลสำหรับการนำโมเดลไปใช้งาน (Inference Engine)
+│   ├── load_model.py           # จัดการการโหลดไฟล์ .h5 และ Scaler
+│   └── predictor_fixed.py      # ระบบพยากรณ์ Real-time (พร้อม Retry Logic และ Validation)
+├── evaluation/                 # การประเมินผล
+│   ├── evaluate_model.py       # สคริปต์คำนวณค่า Error (MAE, RMSE, MAPE) จากชุดข้อมูลทดสอบ
+│   └── metrics.py              # ฟังก์ชัน Metrics กลาง (MAE, RMSE, MAPE)
+├── utils/                      # โมดูลยูทิลิตี้ที่ใช้ร่วมกัน (Shared Utilities)
+│   ├── indicators.py           # การคำนวณ Technical Indicators (ใช้ร่วมระหว่าง Training + Inference)
+│   └── scaling.py              # ฟังก์ชัน Inverse Transform สำหรับ Multi-Feature Scaler
+├── web/                        # ส่วนต่อประสานผู้ใช้ (User Interface)
+│   ├── app.py                  # Flask Server และ API Endpoints
+│   ├── templates/              # HTML Files (Dashboard)
+│   └── static/                 # CSS และ JavaScript (Chart.js)
+├── scripts/                    # สคริปต์เสริมและเครื่องมือ
+│   ├── download_data.py        # ดาวน์โหลดข้อมูล OHLCV จาก Binance API (5,000+ แถว)
+│   ├── test_inference.py       # เทสต์ระบบ Inference
+│   └── debug_chart.py          # เทสต์การดึงข้อมูลกราฟ
+├── tests/                      # ชุดทดสอบอัตโนมัติ
+│   └── test_fixed_predictor.py # Unit Test สำหรับ Predictor (Health, Validation, Scaler, Prediction)
+├── models/                     # ที่เก็บไฟล์ Model (.h5) และ Scaler (.save) ที่ผ่านการเทรนแล้ว
+├── experiments/                # บันทึกผลการทดลอง (Logs, Predictions, CSV Reports)
+├── docs/                       # เอกสารประกอบโครงการ (System Architecture, Workflow Diagram)
+├── requirements.txt            # รายการ Library ที่จำเป็น
+├── render.yaml                 # การตั้งค่าสำหรับ Deploy บน Render
+└── Procfile                    # กำหนดคำสั่งเริ่มต้นสำหรับ Web Server
 ```
 
 ---
 
 ## 5. หลักการทำงานของระบบ (System Workflow)
 
-### Phase 1: Data Preparation
-*   ดึงข้อมูล OHLCV (Open, High, Low, Close, Volume) ผ่าน Binance API
-*   ทำ **Data Normalization** โดยใช้ `MinMaxScaler` เพื่อปรับค่าให้อยู่ในช่วง 0-1
-*   ทำ **Sliding Window Technique** เพื่อแปลงข้อมูล Time-series เป็นรูปแบบ Supervised Learning (X=60 แท่งก่อนหน้า, y=ราคาทัดไป)
+### Phase 1: Data Collection & Preparation
+*   ดึงข้อมูล OHLCV (Open, High, Low, Close, Volume) 5,000+ แท่งเทียนผ่าน Binance API โดยใช้ Pagination
+*   คำนวณ **Technical Indicators** จำนวน 10 ตัว ผ่านโมดูล `utils/indicators.py`:
+    - **SMA** (Simple Moving Average: 7, 25 วัน)
+    - **EMA** (Exponential Moving Average: 12, 26 วัน)
+    - **RSI** (Relative Strength Index: 14 วัน)
+    - **MACD** + Signal Line
+    - **Bollinger Bands** (Upper, Lower)
+    - **Price Returns** (% change)
+*   ทำ **Data Normalization** โดยใช้ `MinMaxScaler` (fit เฉพาะ Training Set เพื่อป้องกัน Data Leakage)
+*   ทำ **Sliding Window Technique** เพื่อแปลงข้อมูล Time-series เป็นรูปแบบ Supervised Learning
+    - Input (X): 60 แท่งเทียนก่อนหน้า × 15 features
+    - Output (y): ราคาปิดแท่งเทียนถัดไป
 *   แบ่งข้อมูลเป็น Training Set (80%) และ Test Set (20%) โดยไม่มีการสลับลำดับเวลา (No Shuffle)
 
 ### Phase 2: Model Training
-*   **LSTM Model:** ประกอบด้วย LSTM Layers 2 ชั้น (Units=50) และ Dropout Layers (0.2) เพื่อป้องกัน Overfitting
-*   **GRU Model:** โครงสร้างคล้ายกันแต่เปลี่ยน Layer หลักเป็น GRU
-*   ใช้ **Adam Optimizer** และ **Mean Squared Error (MSE)** เป็น Loss Function
+*   **สถาปัตยกรรมโมเดล (Enhanced Architecture):**
+    - Layer 1: LSTM/GRU 128 Units + Dropout(0.3) + BatchNormalization
+    - Layer 2: LSTM/GRU 64 Units + Dropout(0.3) + BatchNormalization
+    - Layer 3: LSTM/GRU 32 Units + Dropout(0.2)
+    - Dense Layer: 16 Units (ReLU) → 1 Unit (Linear Output)
+*   **Optimizer:** Adam
+*   **Loss Function:** Mean Squared Error (MSE)
+*   **Callbacks:**
+    - `EarlyStopping` (patience=15, restore_best_weights=True) — หยุดเทรนอัตโนมัติเมื่อไม่มีการปรับปรุง
+    - `ReduceLROnPlateau` (factor=0.5, patience=5) — ลด Learning Rate อัตโนมัติ
+*   **Epochs:** สูงสุด 200 รอบ (จำกัดด้วย EarlyStopping)
 
 ### Phase 3: Inference & Serving
 *   ระบบ Frontend Request ข้อมูลไปยัง Flask API
-*   Backend ดึงข้อมูลราคา Real-time ล่าสุด 60 แท่งเทียน
+*   Backend ดึงข้อมูลราคา Real-time ล่าสุด 160 แท่งเทียน (60 สำหรับ Window + 100 สำหรับ Indicator Warmup)
+*   คำนวณ Technical Indicators 10 ตัว ด้วยโมดูล `utils/indicators.py` (สูตรเดียวกับตอนเทรน)
 *   ทำการ Scale ข้อมูลเข้าสู่ Range 0-1 โดยใช้ Scaler ตัวเดียวกับที่ใช้ตอนเทรน (**Prevent Data Leakage**)
 *   โมเดลประมวลผลและทำนายราคา
-*   Inverse Transform ค่ากลับมาเป็นราคาจริง ($USD) และส่งกลับไปยัง Frontend
+*   Inverse Transform ค่ากลับมาเป็นราคาจริง ($USD) ผ่านโมดูล `utils/scaling.py` และส่งกลับไปยัง Frontend
 
 ---
 
@@ -81,9 +110,11 @@ crypto-ai-research/
 *   **Programming Language:** Python 3.9+
 *   **Deep Learning Framework:** TensorFlow / Keras
 *   **Data Processing:** Pandas, NumPy, Scikit-learn
+*   **Model Persistence:** Joblib (Scaler), HDF5 (Keras Model)
 *   **Web Framework:** Flask
 *   **Frontend Library:** HTML5, CSS3, JavaScript, Chart.js
-*   **External API:** Binance Public Data API
+*   **External API:** Binance Public Data API (Global + US Fallback)
+*   **Deployment:** Render (render.yaml + Procfile)
 
 ---
 
@@ -92,20 +123,22 @@ crypto-ai-research/
 ### 7.1 การติดตั้ง (Installation)
 1. Clone โปรเจคและติดตั้ง Library ที่จำเป็น
    ```bash
+   git clone https://github.com/your-username/crypto-ai-research.git
+   cd crypto-ai-research
    pip install -r requirements.txt
    ```
 
 ### 7.2 การเตรียมข้อมูลและฝึกสอนโมเดล (Data & Training)
 หากต้องการเทรนโมเดลใหม่ด้วยข้อมูลล่าสุด:
-1. ดาวน์โหลดข้อมูล:
+1. ดาวน์โหลดข้อมูล (5,000+ แท่งเทียนต่อชุดข้อมูล):
    ```bash
-   python data/download_data.py
+   python scripts/download_data.py
    ```
-2. รันกระบวนการเทรน (ระบบจะเทรนทั้ง LSTM และ GRU สำหรับทุกเหรียญ):
+2. รันกระบวนการเทรน (ระบบจะเทรนทั้ง LSTM และ GRU สำหรับทุกเหรียญและทุก Timeframe):
    ```bash
    python train/run_training.py
    ```
-   *ไฟล์โมเดลจะถูกบันทึกที่โฟลเดอร์ `models/`*
+   *ไฟล์โมเดล (.h5) และ Scaler (.save) จะถูกบันทึกที่โฟลเดอร์ `models/`*
 
 ### 7.3 การรันเว็บแอปพลิเคชัน (Deployment)
 1. รัน Flask Server:
@@ -118,7 +151,7 @@ crypto-ai-research/
 ---
 
 ## 8. การประเมินผล (Evaluation Metrics)
-ระบบใช้ตัวชี้วัดทางสถิติเพื่อวัดประสิทธิภาพความแม่นยำ:
+ระบบใช้ตัวชี้วัดทางสถิติเพื่อวัดประสิทธิภาพความแม่นยำ (ฟังก์ชันทั้งหมดอยู่ใน `evaluation/metrics.py`):
 
 1.  **MAE (Mean Absolute Error):** ค่าเฉลี่ยความคลาดเคลื่อนสัมบูรณ์ (ยิ่งน้อยยิ่งดี)
 2.  **RMSE (Root Mean Squared Error):** รากที่สองของค่าเฉลี่ยความคลาดเคลื่อนกำลังสอง (เน้นการลงโทษ error ที่มีค่ามาก)
@@ -128,10 +161,11 @@ crypto-ai-research/
 ```bash
 python evaluation/evaluate_model.py
 ```
+*ผลลัพธ์จะถูกบันทึกที่ `experiments/evaluation_report.csv` และ `experiments/predictions/`*
 
 ---
 
-## 9. ระบบทดสอบ (Testing Verification)
+## 9. ระบบทดสอบ (Testing & Verification)
 เพื่อให้มั่นใจว่าระบบทำงานได้ถูกต้องและปราศจากข้อผิดพลาดร้ายแรง (Critical Bugs) โครงการนี้ได้จัดทำโมดูลทดสอบไว้ดังนี้:
 
 ### 9.1 การทดสอบระบบ Inference (Inference System Test)
@@ -153,14 +187,14 @@ python scripts/debug_chart.py
 ```bash
 python tests/test_fixed_predictor.py
 ```
-*สิ่งที่ตรวจสอบ:* `Full System Health`, `Edge Cases`, `Scaler Integrity`, `API Response Status`ๆ
+*สิ่งที่ตรวจสอบ:* `Full System Health`, `Edge Cases`, `Scaler Integrity`, `API Response Status`
 
 ---
 
 ## 10. ข้อจำกัดของระบบ (Limitations)
 1.  **การพึ่งพาข้อมูลในอดีต:** โมเดลเรียนรู้จากพฤติกรรมราคาในอดีต (Technical Analysis) เท่านั้น ไม่ได้นำปัจจัยข่าวสาร (Fundamental/Sentiment) มาวิเคราะห์
 2.  **สภาวะตลาดผันผวนรุนแรง:** ในช่วงที่ตลาดมีความผันผวนสูงผิดปกติ (Market Crash/Pump) ความแม่นยำอาจลดลง
-3.  **API Rate Limit:** การดึงข้อมูล Real-time อาจถูกจำกัดจำนวนครั้งจากทาง Binance หากมีการ Request ถี่เกินไป
+3.  **API Rate Limit:** การดึงข้อมูล Real-time อาจถูกจำกัดจำนวนครั้งจากทาง Binance หากมีการ Request ถี่เกินไป (ระบบมี Retry Logic + Fallback ไปยัง Binance US API)
 
 ---
 

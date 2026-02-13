@@ -51,19 +51,20 @@ def load_research_results():
 
 
 def get_model_metrics(df, coin, timeframe, model_type):
-    """ดึงค่า MAE และ RMSE สำหรับ model ที่ระบุ"""
+    """ดึงค่า MAE, RMSE และ MAPE สำหรับ model ที่ระบุ"""
     if df is None:
-        return {"mae": "N/A", "rmse": "N/A"}
+        return {"mae": "N/A", "rmse": "N/A", "mape": "N/A"}
     
-    row = df[(df["Coin"] == coin.upper()) & 
-             (df["Timeframe"] == timeframe) & 
-             (df["Model"] == model_type)]
+    row = df[(df["coin"] == coin.upper()) & 
+             (df["timeframe"] == timeframe) & 
+             (df["model"] == model_type)]
     if not row.empty:
         return {
-            "mae": round(row["MAE"].values[0], 2),
-            "rmse": round(row["RMSE"].values[0], 2)
+            "mae": round(row["mae"].values[0], 2),
+            "rmse": round(row["rmse"].values[0], 2),
+            "mape": round(row["mape"].values[0], 2)
         }
-    return {"mae": "N/A", "rmse": "N/A"}
+    return {"mae": "N/A", "rmse": "N/A", "mape": "N/A"}
 
 
 # Web Routes
@@ -84,12 +85,26 @@ def index():
     if tf not in valid_timeframes:
         tf = "1h"
     
-    # โหลดผลวิจัยจาก dual_model_results.csv
-    research_df = load_research_results()
+    # โหลดผลวิจัยจาก evaluation_report.csv (มี MAPE)
+    eval_path = os.path.join(RESULT_DIR, "evaluation_report.csv")
+    research_df = None
+    if os.path.exists(eval_path):
+        research_df = pd.read_csv(eval_path)
     
     # ดึงค่า metrics สำหรับ LSTM และ GRU
     lstm_metrics = get_model_metrics(research_df, coin, tf, "LSTM")
     gru_metrics = get_model_metrics(research_df, coin, tf, "GRU")
+    
+    # คำนวณ Best Model (ใช้ MAPE เป็นตัวตัดสิน)
+    best_model = "N/A"
+    best_mape = "N/A"
+    if lstm_metrics["mape"] != "N/A" and gru_metrics["mape"] != "N/A":
+        if lstm_metrics["mape"] < gru_metrics["mape"]:
+            best_model = "LSTM"
+            best_mape = lstm_metrics["mape"]
+        else:
+            best_model = "GRU"
+            best_mape = gru_metrics["mape"]
     
     # รายการเหรียญและ timeframes ที่รองรับ
     available_coins = ["btc", "eth"]
@@ -103,8 +118,12 @@ def index():
         available_timeframes=available_timeframes,
         lstm_mae=lstm_metrics["mae"],
         lstm_rmse=lstm_metrics["rmse"],
+        lstm_mape=lstm_metrics["mape"],
         gru_mae=gru_metrics["mae"],
-        gru_rmse=gru_metrics["rmse"]
+        gru_rmse=gru_metrics["rmse"],
+        gru_mape=gru_metrics["mape"],
+        best_model=best_model,
+        best_mape=best_mape
     )
 
 
