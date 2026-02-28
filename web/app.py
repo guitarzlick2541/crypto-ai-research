@@ -55,20 +55,26 @@ def load_research_results():
 
 
 def get_model_metrics(df, coin, timeframe, model_type):
-    """ดึงค่า MAE, RMSE และ MAPE สำหรับ model ที่ระบุ"""
+    """ดึงค่า MAE, RMSE, MAPE และ DA สำหรับ model ที่ระบุ"""
     if df is None:
-        return {"mae": "N/A", "rmse": "N/A", "mape": "N/A"}
+        return {"mae": "N/A", "rmse": "N/A", "mape": "N/A", "da": "N/A"}
     
     row = df[(df["coin"] == coin.upper()) & 
              (df["timeframe"] == timeframe) & 
              (df["model"] == model_type)]
     if not row.empty:
-        return {
+        result = {
             "mae": round(row["mae"].values[0], 2),
             "rmse": round(row["rmse"].values[0], 2),
             "mape": round(row["mape"].values[0], 2)
         }
-    return {"mae": "N/A", "rmse": "N/A", "mape": "N/A"}
+        # DA column อาจยังไม่มีใน CSV เก่า
+        if "da" in row.columns:
+            result["da"] = round(row["da"].values[0], 2)
+        else:
+            result["da"] = "N/A"
+        return result
+    return {"mae": "N/A", "rmse": "N/A", "mape": "N/A", "da": "N/A"}
 
 
 # Web Routes
@@ -113,9 +119,11 @@ def index():
         lstm_mae=lstm_metrics["mae"],
         lstm_rmse=lstm_metrics["rmse"],
         lstm_mape=lstm_metrics["mape"],
+        lstm_da=lstm_metrics["da"],
         gru_mae=gru_metrics["mae"],
         gru_rmse=gru_metrics["rmse"],
         gru_mape=gru_metrics["mape"],
+        gru_da=gru_metrics["da"],
         best_model=best_model,
         best_mape=best_mape
     )

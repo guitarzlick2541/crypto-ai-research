@@ -2,12 +2,15 @@
 train/train_model.py
 ====================
 Build and train LSTM/GRU models with improved architecture and callbacks.
+Includes reproducibility via fixed random seeds.
 """
 
 import os
 import sys
+import random
 import numpy as np
 import joblib
+import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, GRU, Dense, Dropout, BatchNormalization
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
@@ -20,6 +23,32 @@ from evaluation.metrics import calculate_mae, calculate_rmse, calculate_mape
 from utils.scaling import inverse_transform_close
 import config
 from preprocessing import DataProcessor
+
+
+def set_random_seed(seed: int = None):
+    """
+    ตั้งค่า Random Seed สำหรับ Reproducibility
+    
+    ครอบคลุมทุก framework:
+    - Python built-in random
+    - NumPy
+    - TensorFlow/Keras
+    
+    Args:
+        seed: ค่า seed (ถ้าไม่ระบุจะใช้จาก config.RANDOM_SEED)
+    """
+    if seed is None:
+        seed = config.RANDOM_SEED
+    
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
+    
+    # ปิดการใช้ GPU non-deterministic ops (เพิ่มความแน่นอน)
+    os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    
+    print(f"   🔒 Random seed set to: {seed} (for reproducibility)")
 
 
 def build_model(model_type, input_shape):
@@ -72,6 +101,7 @@ def train_model(coin, timeframe, model_type="LSTM"):
         tuple: (mae, rmse, mape)
     """
     config._ensure_directories(config.MODEL_DIR, config.RESULT_DIR)
+    set_random_seed()  # ตั้งค่า seed ทุกครั้งก่อนเทรน
     print(f"\n🚀 Starting {model_type} Training for {coin.upper()} ({timeframe})...")
     
     # 1. Load Data

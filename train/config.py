@@ -64,6 +64,7 @@ NUM_FEATURES = len(FEATURE_COLUMNS)
 # =====================================================================
 # Model Hyperparameters (ค่า Hyperparameters ของโมเดล)
 # =====================================================================
+RANDOM_SEED = 42          # Random Seed สำหรับ Reproducibility
 WINDOW_SIZE = 60          # ขนาดของ Sliding Window (ระยะเวลาย้อนหลัง)
 PREDICT_SIZE = 1          # ทำนายล่วงหน้า 1 step
 EPOCHS = 200              # จำนวนรอบการเทรน (ใช้ร่วมกับ EarlyStopping)

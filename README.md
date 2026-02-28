@@ -47,8 +47,11 @@ crypto-ai-research/
 │   ├── indicators.py           # การคำนวณ Technical Indicators (ใช้ร่วมระหว่าง Training + Inference)
 │   └── scaling.py              # ฟังก์ชัน Inverse Transform สำหรับ Multi-Feature Scaler
 ├── web/                        # ส่วนต่อประสานผู้ใช้ (User Interface)
-│   ├── app.py                  # Flask Server และ API Endpoints
-│   ├── templates/              # HTML Files (Dashboard)
+│   ├── app.py                  # Flask Server และ API Endpoints (v2.1)
+│   ├── templates/
+│   │   ├── index.html          # หน้า Dashboard หลัก (Real-time Prediction)
+│   │   ├── experiments.html    # หน้า Experiment Dashboard
+│   │   └── health.html         # หน้า System Health Check
 │   └── static/                 # CSS และ JavaScript (Chart.js)
 ├── scripts/                    # สคริปต์เสริมและเครื่องมือ
 │   ├── download_data.py        # ดาวน์โหลดข้อมูล OHLCV จาก Binance API (5,000+ แถว)
@@ -95,6 +98,7 @@ crypto-ai-research/
     - `EarlyStopping` (patience=15, restore_best_weights=True) — หยุดเทรนอัตโนมัติเมื่อไม่มีการปรับปรุง
     - `ReduceLROnPlateau` (factor=0.5, patience=5) — ลด Learning Rate อัตโนมัติ
 *   **Epochs:** สูงสุด 200 รอบ (จำกัดด้วย EarlyStopping)
+*   **Reproducibility:** ตั้งค่า Random Seed = 42 ครอบคลุมทั้ง Python, NumPy และ TensorFlow เพื่อให้ผลการทดลองสามารถทำซ้ำได้
 
 ### Phase 3: Inference & Serving
 *   ระบบ Frontend Request ข้อมูลไปยัง Flask API
@@ -108,12 +112,13 @@ crypto-ai-research/
 
 ## 6. เทคโนโลยีและเครื่องมือ (Tech Stack)
 *   **Programming Language:** Python 3.9+
-*   **Deep Learning Framework:** TensorFlow / Keras
+*   **Deep Learning Framework:** TensorFlow 2.15.0 / Keras
 *   **Data Processing:** Pandas, NumPy, Scikit-learn
-*   **Model Persistence:** Joblib (Scaler), HDF5 (Keras Model)
-*   **Web Framework:** Flask
-*   **Frontend Library:** HTML5, CSS3, JavaScript, Chart.js
+*   **Model Persistence:** Joblib (Scaler), H5py / HDF5 (Keras Model)
+*   **Web Framework:** Flask + Flask-CORS
+*   **Frontend:** HTML5, CSS3, JavaScript, Chart.js, Lucide Icons
 *   **External API:** Binance Public Data API (Global + US Fallback)
+*   **Production Server:** Gunicorn (WSGI)
 *   **Deployment:** Render (render.yaml + Procfile)
 
 ---
@@ -140,32 +145,61 @@ crypto-ai-research/
    ```
    *ไฟล์โมเดล (.h5) และ Scaler (.save) จะถูกบันทึกที่โฟลเดอร์ `models/`*
 
-### 7.3 การรันเว็บแอปพลิเคชัน (Deployment)
-1. รัน Flask Server:
-   ```bash
-   python web/app.py
-   ```
-2. เปิด Browser และเข้าใช้งานที่:
-   `http://localhost:5000`
-
----
-
-## 8. การประเมินผล (Evaluation Metrics)
-ระบบใช้ตัวชี้วัดทางสถิติเพื่อวัดประสิทธิภาพความแม่นยำ (ฟังก์ชันทั้งหมดอยู่ใน `evaluation/metrics.py`):
-
-1.  **MAE (Mean Absolute Error):** ค่าเฉลี่ยความคลาดเคลื่อนสัมบูรณ์ (ยิ่งน้อยยิ่งดี)
-2.  **RMSE (Root Mean Squared Error):** รากที่สองของค่าเฉลี่ยความคลาดเคลื่อนกำลังสอง (เน้นการลงโทษ error ที่มีค่ามาก)
-3.  **MAPE (Mean Absolute Percentage Error):** ค่าเฉลี่ยความผิดพลาดคิดเป็นร้อยละ
-
-การประเมินผลด้วยชุดข้อมูลทดสอบ (Test Set) สามารถทำได้โดยรัน:
+### 7.3 การประเมินผลโมเดล (Evaluation)
+รันระบบประเมินผลเพื่อคำนวณค่า MAE, RMSE, MAPE ของทุกโมเดล:
 ```bash
 python evaluation/evaluate_model.py
 ```
 *ผลลัพธ์จะถูกบันทึกที่ `experiments/evaluation_report.csv` และ `experiments/predictions/`*
 
+### 7.4 การรันเว็บแอปพลิเคชัน (Web Application)
+1. รัน Flask Server:
+   ```bash
+   python web/app.py
+   ```
+2. เปิด Browser และเข้าใช้งานตามหน้าต่างๆ:
+
+| URL | หน้า | รายละเอียด |
+|-----|------|------------|
+| `http://localhost:5000/` | Dashboard | หน้าหลักแสดง Real-time Prediction |
+| `http://localhost:5000/experiments` | Experiments | สรุปผลการทดลอง |
+| `http://localhost:5000/health` | Health Check | ตรวจสอบสถานะระบบและโมเดล |
+
 ---
 
-## 9. ระบบทดสอบ (Testing & Verification)
+## 8. API Endpoints
+ระบบมี RESTful API สำหรับเชื่อมต่อกับ Frontend หรือระบบภายนอก:
+
+| Method | Endpoint | รายละเอียด |
+|--------|----------|------------|
+| GET | `/api/predict?coin=btc&tf=1h&model=both` | พยากรณ์ราคา Real-time (LSTM/GRU/Both) |
+| GET | `/api/price?coin=btc&tf=1h&limit=100` | ดึงราคาปัจจุบัน + OHLCV |
+| GET | `/api/models` | รายการโมเดลที่พร้อมใช้งาน |
+| GET | `/api/research` | ผลวิจัย MAE/RMSE/MAPE |
+| GET | `/api/experiments/accuracy` | ข้อมูล Accuracy (MAE/RMSE/MAPE) |
+| GET | `/api/experiments/log` | ประวัติการทดลอง (Experiment Log) |
+| GET | `/api/health` | สถานะระบบ (JSON) |
+
+---
+
+## 9. การประเมินผล (Evaluation Metrics)
+ระบบใช้ตัวชี้วัดทางสถิติเพื่อวัดประสิทธิภาพความแม่นยำ (ฟังก์ชันทั้งหมดอยู่ใน `evaluation/metrics.py`):
+
+1.  **MAE (Mean Absolute Error):** ค่าเฉลี่ยความคลาดเคลื่อนสัมบูรณ์ (ยิ่งน้อยยิ่งดี)
+2.  **RMSE (Root Mean Squared Error):** รากที่สองของค่าเฉลี่ยความคลาดเคลื่อนกำลังสอง (เน้นการลงโทษ error ที่มีค่ามาก)
+3.  **MAPE (Mean Absolute Percentage Error):** ค่าเฉลี่ยความผิดพลาดคิดเป็นร้อยละ (< 5% ถือว่าดีมาก)
+4.  **DA (Directional Accuracy):** ความแม่นยำในการทำนายทิศทางราคา (ขึ้น/ลง) คิดเป็นเปอร์เซ็นต์ (> 50% ถือว่าดีกว่าการสุ่ม)
+
+### Baseline Comparison
+ระบบมีการเปรียบเทียบผลลัพธ์ของโมเดล Deep Learning กับ Baseline Models เพื่อยืนยันว่าโมเดลมีประสิทธิภาพดีกว่าวิธีการพื้นฐาน:
+*   **Naive Forecast:** ใช้ราคาปิดของแท่งเทียนก่อนหน้าเป็นค่าทำนาย (ŷ[t] = y[t-1])
+*   **Moving Average (7):** ค่าเฉลี่ยเคลื่อนที่ 7 ช่วงเวลาก่อนหน้า
+
+ผลลัพธ์ทั้งหมดถูกรวมศูนย์ไว้ที่ `experiments/evaluation_report.csv` ซึ่งเป็น **Single Source of Truth** สำหรับทุก API Endpoint
+
+---
+
+## 10. ระบบทดสอบ (Testing & Verification)
 เพื่อให้มั่นใจว่าระบบทำงานได้ถูกต้องและปราศจากข้อผิดพลาดร้ายแรง (Critical Bugs) โครงการนี้ได้จัดทำโมดูลทดสอบไว้ดังนี้:
 
 ### 9.1 การทดสอบระบบ Inference (Inference System Test)
@@ -191,12 +225,12 @@ python tests/test_fixed_predictor.py
 
 ---
 
-## 10. ข้อจำกัดของระบบ (Limitations)
+## 11. ข้อจำกัดของระบบ (Limitations)
 1.  **การพึ่งพาข้อมูลในอดีต:** โมเดลเรียนรู้จากพฤติกรรมราคาในอดีต (Technical Analysis) เท่านั้น ไม่ได้นำปัจจัยข่าวสาร (Fundamental/Sentiment) มาวิเคราะห์
 2.  **สภาวะตลาดผันผวนรุนแรง:** ในช่วงที่ตลาดมีความผันผวนสูงผิดปกติ (Market Crash/Pump) ความแม่นยำอาจลดลง
 3.  **API Rate Limit:** การดึงข้อมูล Real-time อาจถูกจำกัดจำนวนครั้งจากทาง Binance หากมีการ Request ถี่เกินไป (ระบบมี Retry Logic + Fallback ไปยัง Binance US API)
 
 ---
 
-## 11. หมายเหตุ (Note)
+## 12. หมายเหตุ (Note)
 โครงการนี้เป็นส่วนหนึ่งของการศึกษาและวิจัยเพื่อการเรียนรู้ ไม่แนะนำให้ใช้อ้างอิงสำหรับการลงทุนจริงที่มีความเสี่ยงสูง ผู้พัฒนามิได้มีเจตนาชักชวนให้ลงทุนในสินทรัพย์ดิจิทัลแต่อย่างใด

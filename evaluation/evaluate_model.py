@@ -7,8 +7,9 @@ evaluation/evaluate_model.py
 1. โหลดโมเดลที่ฝึกแล้ว (LSTM, GRU) และ Scalers
 2. โหลดข้อมูลดิบและเตรียม Test Set (Multi-Feature)
 3. สร้างการทำนายบนข้อมูลที่ไม่เคยเห็น (Test Set)
-4. บันทึกผลการทดลอง (ค่าจริง vs ค่าทำนาย) ไปยัง experiments/
-5. คำนวณตัวชี้วัดทางสถิติ (MAE, RMSE, MAPE)
+4. คำนวณ Baseline Models (Naive Forecast, Moving Average)
+5. บันทึกผลการทดลอง (ค่าจริง vs ค่าทำนาย) ไปยัง experiments/
+6. คำนวณตัวชี้วัดทางสถิติ (MAE, RMSE, MAPE, Directional Accuracy)
 """
 
 import os
@@ -23,7 +24,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from train import config
 from train.preprocessing import DataProcessor
-from evaluation.metrics import calculate_mae, calculate_rmse, calculate_mape
+from evaluation.metrics import (
+    calculate_mae, calculate_rmse, calculate_mape, 
+    calculate_directional_accuracy
+)
 from utils.scaling import inverse_transform_close
 
 # ---------------------------------------------------------
@@ -32,10 +36,46 @@ from utils.scaling import inverse_transform_close
 REPORT_FILE = os.path.join(config.RESULT_DIR, "evaluation_report.csv")
 
 
+def compute_baseline_predictions(actual_series):
+    """
+    คำนวณ Baseline Models สำหรับเปรียบเทียบกับ Deep Learning
+    
+    Baselines:
+    1. Naive Forecast: ใช้ราคาล่าสุดเป็นค่าทำนาย (y_pred[t] = y_actual[t-1])
+    2. Moving Average (7): ค่าเฉลี่ยเคลื่อนที่ 7 ช่วงเวลา
+    
+    Args:
+        actual_series: np.array ของราคาจริง (inverse-transformed)
+        
+    Returns:
+        dict: {
+            "naive": {"predictions": np.array, "start_idx": int},
+            "ma7": {"predictions": np.array, "start_idx": int}
+        }
+    """
+    actual = np.array(actual_series).flatten()
+    
+    # 1. Naive Forecast: y_pred[t] = y_actual[t-1]
+    # เริ่มจาก index 1 เพราะ Naive ต้องการค่าก่อนหน้า 1 ตัว
+    naive_preds = actual[:-1]  # ค่าจริงของ step ก่อนหน้า
+    
+    # 2. Moving Average (7): ค่าเฉลี่ย 7 ช่วงเวลาก่อนหน้า
+    ma_period = 7
+    ma_preds = []
+    for i in range(ma_period, len(actual)):
+        ma_preds.append(np.mean(actual[i - ma_period:i]))
+    ma_preds = np.array(ma_preds)
+    
+    return {
+        "naive": {"predictions": naive_preds, "start_idx": 1},
+        "ma7": {"predictions": ma_preds, "start_idx": ma_period}
+    }
+
+
 def evaluate_models():
     """
     กระบวนการประเมินผลหลัก (Main Evaluation Workflow)
-    รองรับ Multi-Feature Models
+    รองรับ Multi-Feature Models + Baseline Comparison + Directional Accuracy
     """
     config._ensure_directories(config.RESULT_DIR)
     
@@ -47,7 +87,7 @@ def evaluate_models():
     ]
 
     print("=" * 60)
-    print(" STARTING RESEARCH EVALUATION")
+    print(" STARTING RESEARCH EVALUATION (with Baselines)")
     print("=" * 60)
 
     for coin in config.COINS:
@@ -80,7 +120,10 @@ def evaluate_models():
                 traceback.print_exc()
                 continue
             
-            # 2. ประเมินผลแต่ละโมเดล
+            # ตัวแปรเก็บ actual_series สำหรับ baseline (คำนวณครั้งเดียว)
+            actual_series_for_baseline = None
+            
+            # 2. ประเมินผลแต่ละโมเดล (LSTM, GRU)
             for m in models_to_eval:
                 model_type = m["type"]
                 prefix = m["prefix"]
@@ -109,6 +152,10 @@ def evaluate_models():
                     preds_series = preds_actual.flatten()
                     actual_series = actual_series.flatten()
                     
+                    # เก็บ actual_series สำหรับ baseline (ครั้งแรกเท่านั้น)
+                    if actual_series_for_baseline is None:
+                        actual_series_for_baseline = actual_series.copy()
+                    
                     # 3. บันทึกผลการทดลอง
                     predictions_dir = os.path.join(config.RESULT_DIR, "predictions")
                     os.makedirs(predictions_dir, exist_ok=True)
@@ -125,10 +172,11 @@ def evaluate_models():
                     df_experiment.to_csv(experiment_path, index=False)
                     print(f"       Saved predictions: {experiment_path}")
                     
-                    # 4. คำนวณตัวชี้วัด (using shared metrics)
+                    # 4. คำนวณตัวชี้วัด (using shared metrics + directional accuracy)
                     mae = calculate_mae(actual_series, preds_series)
                     rmse = calculate_rmse(actual_series, preds_series)
                     mape = calculate_mape(actual_series, preds_series)
+                    da = calculate_directional_accuracy(actual_series, preds_series)
                     
                     summary_results.append({
                         "model": model_type,
@@ -136,13 +184,53 @@ def evaluate_models():
                         "coin": coin.upper(),
                         "mae": round(mae, 4),
                         "rmse": round(rmse, 4),
-                        "mape": round(mape, 4)
+                        "mape": round(mape, 4),
+                        "da": round(da, 2)
                     })
+                    
+                    print(f"       MAE: {mae:.2f}, RMSE: {rmse:.2f}, MAPE: {mape:.2f}%, DA: {da:.2f}%")
                     
                 except Exception as e:
                     print(f"      ❌ Evaluation failed: {e}")
                     import traceback
                     traceback.print_exc()
+            
+            # 3. คำนวณ Baseline Models (Naive + MA7)
+            if actual_series_for_baseline is not None and len(actual_series_for_baseline) > 7:
+                print(f"\n    📐 Computing Baselines for {coin.upper()} ({tf})...")
+                baselines = compute_baseline_predictions(actual_series_for_baseline)
+                
+                for baseline_name, baseline_data in baselines.items():
+                    start_idx = baseline_data["start_idx"]
+                    b_preds = baseline_data["predictions"]
+                    b_actual = actual_series_for_baseline[start_idx:]
+                    
+                    # ตรวจสอบความยาวตรงกัน
+                    min_len = min(len(b_preds), len(b_actual))
+                    b_preds = b_preds[:min_len]
+                    b_actual = b_actual[:min_len]
+                    
+                    if min_len == 0:
+                        continue
+                    
+                    mae = calculate_mae(b_actual, b_preds)
+                    rmse = calculate_rmse(b_actual, b_preds)
+                    mape = calculate_mape(b_actual, b_preds)
+                    da = calculate_directional_accuracy(b_actual, b_preds)
+                    
+                    display_name = "Naive" if baseline_name == "naive" else "MA(7)"
+                    
+                    summary_results.append({
+                        "model": display_name,
+                        "timeframe": tf,
+                        "coin": coin.upper(),
+                        "mae": round(mae, 4),
+                        "rmse": round(rmse, 4),
+                        "mape": round(mape, 4),
+                        "da": round(da, 2)
+                    })
+                    
+                    print(f"       {display_name}: MAE={mae:.2f}, RMSE={rmse:.2f}, MAPE={mape:.2f}%, DA={da:.2f}%")
 
     # 5. บันทึกรายงานสรุป
     if summary_results:
@@ -152,13 +240,24 @@ def evaluate_models():
         print("\n" + "=" * 60)
         print(" EVALUATION SUMMARY (Saved to evaluation_report.csv)")
         print("=" * 60)
-        print(df_summary)
+        print(df_summary.to_string(index=False))
         
-        best_model_idx = df_summary['mape'].idxmin()
-        best_model = df_summary.loc[best_model_idx]
-        print("\n BEST PERFORMING MODEL:")
-        print(f"   {best_model['model']} on {best_model['coin']} ({best_model['timeframe']})")
-        print(f"   MAPE: {best_model['mape']}%")
+        # แยกผลลัพธ์ DL models กับ baselines
+        dl_models = df_summary[df_summary['model'].isin(['LSTM', 'GRU'])]
+        baselines = df_summary[df_summary['model'].isin(['Naive', 'MA(7)'])]
+        
+        if not dl_models.empty:
+            best_model_idx = dl_models['mape'].idxmin()
+            best_model = dl_models.loc[best_model_idx]
+            print("\n🏆 BEST PERFORMING MODEL:")
+            print(f"   {best_model['model']} on {best_model['coin']} ({best_model['timeframe']})")
+            print(f"   MAPE: {best_model['mape']}% | DA: {best_model['da']}%")
+        
+        if not baselines.empty:
+            print("\n📐 BASELINE COMPARISON:")
+            for _, row in baselines.iterrows():
+                print(f"   {row['model']} on {row['coin']} ({row['timeframe']}): "
+                      f"MAPE={row['mape']}%, DA={row['da']}%")
         
         readme_path = os.path.join(config.RESULT_DIR, "README.md")
         with open(readme_path, "w", encoding="utf-8") as f:
@@ -169,10 +268,19 @@ def evaluate_models():
             f.write("- **คอลัมน์**:\n")
             f.write("  - `timestamp`: วันและเวลาของข้อมูล\n")
             f.write("  - `actual`: ราคาปิดจริง\n")
-            f.write("  - `predicted`: ราคาที่ทำนายโดยโมเดล AI\n")
+            f.write("  - `predicted`: ราคาที่ทำนายโดยโมเดล AI\n\n")
+            f.write("## ตัวชี้วัดที่ใช้ (Evaluation Metrics)\n")
+            f.write("- **MAE**: Mean Absolute Error\n")
+            f.write("- **RMSE**: Root Mean Squared Error\n")
+            f.write("- **MAPE**: Mean Absolute Percentage Error (%)\n")
+            f.write("- **DA**: Directional Accuracy (%) — ความแม่นยำในการทำนายทิศทางราคา\n\n")
+            f.write("## Baseline Models\n")
+            f.write("- **Naive Forecast**: ใช้ราคาปิดของแท่งเทียนก่อนหน้าเป็นค่าทำนาย\n")
+            f.write("- **MA(7)**: ค่าเฉลี่ยเคลื่อนที่ 7 ช่วงเวลาก่อนหน้า\n")
             
     else:
         print("\n❌ No models were evaluated successfully.")
 
 if __name__ == "__main__":
     evaluate_models()
+
