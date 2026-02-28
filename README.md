@@ -41,8 +41,8 @@ crypto-ai-research/
 │   ├── load_model.py           # จัดการการโหลดไฟล์ .h5 และ Scaler
 │   └── predictor_fixed.py      # ระบบพยากรณ์ Real-time (พร้อม Retry Logic และ Validation)
 ├── evaluation/                 # การประเมินผล
-│   ├── evaluate_model.py       # สคริปต์คำนวณค่า Error (MAE, RMSE, MAPE) จากชุดข้อมูลทดสอบ
-│   └── metrics.py              # ฟังก์ชัน Metrics กลาง (MAE, RMSE, MAPE)
+│   ├── evaluate_model.py       # สคริปต์คำนวณค่า Error (MAE, RMSE, MAPE, DA) + Baseline Comparison
+│   └── metrics.py              # ฟังก์ชัน Metrics กลาง (MAE, RMSE, MAPE, Directional Accuracy)
 ├── utils/                      # โมดูลยูทิลิตี้ที่ใช้ร่วมกัน (Shared Utilities)
 │   ├── indicators.py           # การคำนวณ Technical Indicators (ใช้ร่วมระหว่าง Training + Inference)
 │   └── scaling.py              # ฟังก์ชัน Inverse Transform สำหรับ Multi-Feature Scaler
@@ -61,7 +61,7 @@ crypto-ai-research/
 │   └── test_fixed_predictor.py # Unit Test สำหรับ Predictor (Health, Validation, Scaler, Prediction)
 ├── models/                     # ที่เก็บไฟล์ Model (.h5) และ Scaler (.save) ที่ผ่านการเทรนแล้ว
 ├── experiments/                # บันทึกผลการทดลอง (Logs, Predictions, CSV Reports)
-├── docs/                       # เอกสารประกอบโครงการ (System Architecture, Workflow Diagram)
+
 ├── requirements.txt            # รายการ Library ที่จำเป็น
 ├── render.yaml                 # การตั้งค่าสำหรับ Deploy บน Render
 └── Procfile                    # กำหนดคำสั่งเริ่มต้นสำหรับ Web Server
